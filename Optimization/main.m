@@ -19,7 +19,6 @@ p1 = [0,motor_torque_intercept*gear_ratio];
 p2 = [motor_base_free_speed/gear_ratio, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
-%b_ts2 = motor_base_torque*gear_ratio;
 
 %derive dynamics
 [kinematics,dynamics] = derive_leg(gear_ratio); 
@@ -29,7 +28,7 @@ b_ts = motor_torque_intercept*gear_ratio;
 
 opti = casadi.Opti(); % Optimization problem
 
-step_scaling = 10;
+step_scaling = 5;
 N  = 50*step_scaling;   % number of control intervals
 dt = 0.025/step_scaling; % dynamics dt
 T  = N*dt; % duration of stance phase
@@ -77,9 +76,7 @@ for k=1:N % loop over control intervals
     opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
-    %CORRECTION_FACTOR = 5/6;
-    CORRECTION_FACTOR = 1;
-    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts*CORRECTION_FACTOR) )
+    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts) )
 
     % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
     % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
