@@ -19,6 +19,7 @@ p1 = [0,motor_torque_intercept*gear_ratio];
 p2 = [motor_base_free_speed/gear_ratio, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
+%b_ts2 = motor_base_torque*gear_ratio;
 
 %derive dynamics
 [kinematics,dynamics] = derive_leg(gear_ratio); 
@@ -75,12 +76,12 @@ for k=1:N % loop over control intervals
     opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
-    CORRECTION_FACTOR = 5/6;
-    %CORRECTION_FACTOR = 1;
-    opti.subject_to( abs(Uk) <= m_ts * abs(Vm) + b_ts * CORRECTION_FACTOR )
+    %CORRECTION_FACTOR = 5/6;
+    CORRECTION_FACTOR = 1;
+    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts*CORRECTION_FACTOR) )
 
-    %or we try a POWER based constraint
-    %opti.subject_to(-motor_base_torque*motor_base_free_speed <= Uk * Vm <= motor_base_torque*motor_base_free_speed)
+    % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
+    % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
 
     %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
     opti.subject_to( 0 <= Xk1(2) <= pi/2.2 )% Knee above ground, avoid singularity
@@ -173,6 +174,15 @@ title("Actuation Command Overlayed on TS Curve during Stance");
 legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
 grid on
 
+
+
+
+
+
+
+
+
+
 %% TESTING CONSTRAINTS GRAPHICALLY
     %figure
     %hold on
@@ -207,3 +217,13 @@ grid on
 
 %can we use a MATLAB function as a constraint? if we write three
 %constraints 
+
+
+
+%SOME OTHER NOTES
+%add the line as a COST? 
+%we learned that the constraint doesn't actually work in this case 
+% might need a quper quadratic cost ?? 
+
+
+%print the constraint violations at each time step 

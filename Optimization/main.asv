@@ -19,6 +19,7 @@ p1 = [0,motor_torque_intercept*gear_ratio];
 p2 = [motor_base_free_speed/gear_ratio, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
+b_ts2 = motor_base_torque*gear_ratio;
 
 %derive dynamics
 [kinematics,dynamics] = derive_leg(gear_ratio); 
@@ -33,7 +34,7 @@ dt = 0.025; % dynamics dt
 T  = N*dt; % duration of stance phase
 
 % ---- decision variables ---------
-X = opti.variable(4,N+1); % [y, theta, dy, dtheta]
+X = opti.variable(4,N+1); % [y, theta, dy, dtheta] NOTE: this includes initial conditions ! 
 U = opti.variable(1,N);   % hip torque (could alternatively parameterize U by a spline
 F = opti.variable(1,N);   % vertical reaction force
 
@@ -71,15 +72,17 @@ for k=1:N % loop over control intervals
     Vm = Xk(end);
     opti.subject_to( Xk1(1) == 0 )      % Foot in place
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
-    opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
-    opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
+    %opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
+    %opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
-    CORRECTION_FACTOR = 5/6;
-    opti.subject_to( abs(Uk) <= m_ts * abs(Vm) + b_ts * CORRECTION_FACTOR )
+    %CORRECTION_FACTOR = 5/6;
+    CORRECTION_FACTOR = 1;
+    %opti.subject_to( abs(Uk) <= m_ts * abs(Vm) + b_ts * CORRECTION_FACTOR )
+    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts2 * CORRECTION_FACTOR) )
 
-    %or we try a POWER based constraint
-    %opti.subject_to(-motor_base_torque*motor_base_free_speed <= Uk * Vm <= motor_base_torque*motor_base_free_speed)
+    % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
+    % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
 
     %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
     opti.subject_to( 0 <= Xk1(2) <= pi/2.2 )% Knee above ground, avoid singularity
@@ -160,6 +163,8 @@ c = linspace(1,10,length(motor_velocities));
 figure;
 hold on
 scatter(motor_velocities, motor_torques, sz, c, 'filled');
+%plot(motor_velocities, motor_torques); MAYBE ADD A LINE HERE FOR
+%orientation" also change the thicknesses of everything
 plot([0,motor_base_free_speed/gear_ratio],[motor_base_torque*gear_ratio,motor_base_torque*gear_ratio]); %draw the torque saturation limit line
 plot([motor_base_free_speed/gear_ratio,motor_base_free_speed/gear_ratio],[0,motor_base_torque*gear_ratio]); %draw the free speed
 %plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
@@ -170,12 +175,21 @@ title("Actuation Command Overlayed on TS Curve during Stance");
 legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
 grid on
 
+
+
+
+
+
+
+
+
+
 %% TESTING CONSTRAINTS GRAPHICALLY
-figure
-hold on
-plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
-fplot(@(x) m_ts * x + b_ts);
-legend('one', 'two');
+    %figure
+    %hold on
+    %plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
+    %fplot(@(x) m_ts * x + b_ts);
+    %legend('one', 'two');
 %CORRECTION FACTOR TELLS US IT'S JUST THE y-INTERCEPT THAT'S WRONG
 
 
