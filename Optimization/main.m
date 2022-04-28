@@ -9,7 +9,7 @@ import casadi.*
 %% Derive dynamics
 
 %actuator base parameters
-gear_ratio = 10;
+gear_ratio = 12;
 motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
@@ -29,8 +29,9 @@ b_ts = motor_torque_intercept*gear_ratio;
 
 opti = casadi.Opti(); % Optimization problem
 
-N  = 50;   % number of control intervals
-dt = 0.025; % dynamics dt
+step_scaling = 10;
+N  = 50*step_scaling;   % number of control intervals
+dt = 0.025/step_scaling; % dynamics dt
 T  = N*dt; % duration of stance phase
 
 % ---- decision variables ---------
@@ -115,6 +116,7 @@ zf = z(:,end);
 thetaf = zf(2);
 
 %simulate forward projectile motion 
+MAX_HEIGHT = projectile_motion(full(t_peak),yi,vi,g)
 t2 = dt:dt:2*full(t_peak); %simulate to right before impact
 ys = [];
 ts = [];
@@ -153,7 +155,7 @@ for x = z
 end
 
 %remove the initial configuration of the leg from state vector
-motor_velocities = motor_velocities(2:end);
+motor_velocities = motor_velocities(1:end-1); %DONT REMOVE THE FIRST ONE
 
 %formatting the figure
 sz = 25;
@@ -227,3 +229,22 @@ grid on
 
 
 %print the constraint violations at each time step 
+
+%TRY DECREASING THE TIMESTEP??? 
+%problem gets worse @ higher gear ratios, 
+%decreasing timestep significantly helped 
+
+%% OK HERE's HOW WE FIXED IT 
+
+%look @ our integration scheme 
+% V_(k+1) = Vk + Uk*dt
+
+%so the arrays look like this !!! 
+% [v1, v2, v2, v4 ... vN]
+% [u1, u2, u3, ... uN-1] 
+
+%the torques go with the FIRST time step because they get APPLIED to
+%calculate the next time step 
+
+%which also asks the question should we constrain Uk to Vk or Vk+1 ??? 
+

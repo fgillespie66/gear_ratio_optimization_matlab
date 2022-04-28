@@ -9,7 +9,7 @@ import casadi.*
 %% Derive dynamics
 
 %actuator base parameters
-gear_ratio = 10;
+gear_ratio = 20;
 motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
@@ -19,7 +19,7 @@ p1 = [0,motor_torque_intercept*gear_ratio];
 p2 = [motor_base_free_speed/gear_ratio, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
-b_ts2 = motor_base_torque*gear_ratio;
+%b_ts2 = motor_base_torque*gear_ratio;
 
 %derive dynamics
 [kinematics,dynamics] = derive_leg(gear_ratio); 
@@ -28,6 +28,7 @@ b_ts2 = motor_base_torque*gear_ratio;
 % via trapezoidal Collocation
 
 opti = casadi.Opti(); % Optimization problem
+
 
 N  = 50;   % number of control intervals
 dt = 0.025; % dynamics dt
@@ -72,14 +73,13 @@ for k=1:N % loop over control intervals
     Vm = Xk(end);
     opti.subject_to( Xk1(1) == 0 )      % Foot in place
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
-    %opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
-    %opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
+    opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
+    opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
     %CORRECTION_FACTOR = 5/6;
     CORRECTION_FACTOR = 1;
-    %opti.subject_to( abs(Uk) <= m_ts * abs(Vm) + b_ts * CORRECTION_FACTOR )
-    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts2 * CORRECTION_FACTOR) )
+    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts*CORRECTION_FACTOR) )
 
     % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
     % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
@@ -116,6 +116,7 @@ zf = z(:,end);
 thetaf = zf(2);
 
 %simulate forward projectile motion 
+MAX_HEIGHT = projectile_motion(full(t_peak),yi,vi,g)
 t2 = dt:dt:2*full(t_peak); %simulate to right before impact
 ys = [];
 ts = [];
@@ -218,3 +219,15 @@ grid on
 
 %can we use a MATLAB function as a constraint? if we write three
 %constraints 
+
+
+
+%SOME OTHER NOTES
+%add the line as a COST? 
+%we learned that the constraint doesn't actually work in this case 
+% might need a quper quadratic cost ?? 
+
+
+%print the constraint violations at each time step 
+
+%TRY DECREASING THE TIMESTEP??? 
