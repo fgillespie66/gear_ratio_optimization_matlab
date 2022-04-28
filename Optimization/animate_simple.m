@@ -1,6 +1,6 @@
 function animate_simple(t,z,kinematics,speed)
 
-    axis([-.2 .2 -.2 1])
+    axis([-.2 .4 -.1 1.2])
     h_ground = plot([-1 1],[0 0],'k-','LineWidth',5);
     hold on
     h_leg    = plot([0],[0],'-o',...
@@ -24,5 +24,5 @@ function draw_lines(z,kinematics,h_leg)
     h_leg.YData = keypoints(2,:);
     drawnow
     axis equal % sets the X:Y aspect ratio 1:1; otherwise things will look stretched
-    axis([-.2 .2 -.2 1])
+    axis([-.2 .4 -.1 1.2])
 end
