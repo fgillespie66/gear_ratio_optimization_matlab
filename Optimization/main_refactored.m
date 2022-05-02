@@ -27,7 +27,7 @@ params.g  = -9.81;
 params.projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 
 %% Loop over gear ratios
-gear_ratios = [6, 8];
+gear_ratios = 1:0.5:40;
 
 
 for gear_ratio = gear_ratios
