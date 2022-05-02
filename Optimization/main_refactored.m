@@ -1,9 +1,13 @@
 clear
 close all
 
+%% GENERAL USER SET PARAMETERS
+path = '../casadi_mac'; %CASADI PATH
+verbose = true; %plot for all gear ratios
+
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
-addpath(genpath('../casadi')) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
+addpath(genpath(path)) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
 import casadi.*
 
 %% Create struct of important params
@@ -13,8 +17,9 @@ params.motor_base_free_speed = 190; %rads per second mini cheetah motor
 params.motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
 
 % trajectory related
-params.N  = 50;   % number of control intervals
-params.dt = 0.025; % dynamics dt
+step_scaling = 3;
+params.N  = 50*step_scaling;   % number of control intervals
+params.dt = 0.025/step_scaling; % dynamics dt
 params.T  = params.N*params.dt; % duration of stance phase
 params.g  = -9.81; 
 
@@ -39,10 +44,12 @@ for gear_ratio = gear_ratios
     [kinematics,dynamics] = derive_leg(gear_ratio); 
     
     % formulate optimization via trapezoidal collocation
-     [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, gear_ratio);
+     [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, gear_ratio, path);
      
      % simulate forward the dynamics
-    create_graphics(kinematics, params, X, U, sol)
+     if verbose
+        create_graphics(kinematics, params, X, U, sol, path)
+     end
 end
     
     

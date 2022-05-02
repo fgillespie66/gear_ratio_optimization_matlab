@@ -1,8 +1,8 @@
-function [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, gear_ratio)
+function [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, gear_ratio, path)
 
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
-addpath(genpath('../casadi')) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
+addpath(genpath(path)) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
 import casadi.*
 
 %% Formulate Optimization

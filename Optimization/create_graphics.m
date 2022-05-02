@@ -1,7 +1,7 @@
-function [] = create_graphics(kinematics, params, X, U, sol)
+function [] = create_graphics(kinematics, params, X, U, sol, path)
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
-addpath(genpath('../casadi')) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
+addpath(genpath(path)) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
 import casadi.*
 
 %% Get params
