@@ -27,9 +27,9 @@ params.g  = -9.81;
 params.projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 
 %% Loop over gear ratios
-gear_ratios = 1:0.5:40;
+gear_ratios = [6, 8];
 
-max_heights = zeros(length(gear_ratios), 1);
+max_heights = zeros(length(gear_ratios));
 
 
 for i = 1:length(gear_ratios)
@@ -61,26 +61,27 @@ for i = 1:length(gear_ratios)
     zf = z(:,end);
     thetaf = zf(2);
    
-    peak_height = full(params.projectile_motion(full(t_peak),yi,vi,params.g));
-    max_heights(i) = peak_height; 
+    peak_height = params.projectile_motion(full(t_peak),yi,vi,params.g);
+    % max_heights(i) = peak_height; 
     % error: conversion to double from casadi.DM is not possible
     
     % optionally create graphics of leg jumping and torque plot
-   if verbose
+    if verbose
        params.t = t;
        params.t_peak = t_peak;
        params.yi = yi;
        params.vi = vi;
-       params.z = z;
-       params.thetaf = thetaf;
-       create_graphics(kinematics, params, U, sol, path)
-   end
+       create_graphics(kinematics, params, X, U, sol, path);
+    end
+
+
+
+    
 end
     
 % Fiona's changes to make:kinematics
-% graph of all gear ratio vs max height, 
-% rename figures to include gear
-% ratio somewhere, add saving of graph vs height
+% decide dependency graph of all gear ratio vs max height, rename figures to include gear
+% ratio somewhere, add saving of graph vs height, 
 % fix coloring
     
     

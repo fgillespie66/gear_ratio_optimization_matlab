@@ -1,4 +1,5 @@
-function [] = create_graphics(kinematics, params, X, U, sol, path)
+function [] = create_graphics(kinematics, params, U, sol, path)
+
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
 addpath(genpath(path)) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
@@ -21,35 +22,27 @@ p2 = params.p2;
 m_ts = params.m_ts;
 b_ts = params.b_ts;
 
+t = params.t;
+z = params.z;
+t_peak = params.t_peak;
+yi = params.yi;
+vi = params.vi;
+thetaf = params.thetaf;
 
 %% Simulate Forward the Dynamics
-
-% ---- post-processing        ------
-t = 0:dt:(N*dt);
-z = sol.value(X);
-
-%---- simulating forward the dyanmics ----
-terminal_COM_sol = kinematics.COM(z(:,end));
-yi = 0;
-vi    = terminal_COM_sol(4);
-t_peak   = -vi / g;  
-zf = z(:,end);
-thetaf = zf(2);
-
-%simulate forward projectile motion 
-MAX_HEIGHT = projectile_motion(full(t_peak),yi,vi,g)
 t2 = dt:dt:2*full(t_peak); %simulate to right before impact
-ys = [];
-ts = [];
-gs = [];
-zeros = [];
-for time = t2
-    yc = projectile_motion(time,yi,vi,g); %use this with yi = 0 but vi is the same! 
-    ys = [ys, full(yc)];
-    ts = [ts, thetaf];
-    gs = [gs, g];
-    zeros = [zeros, 0.0];
-end
+    ys = [];
+    ts = [];
+    gs = [];
+    zeros = [];
+    for time = t2
+        yc = projectile_motion(time,yi,vi,g); %use this with yi = 0 but vi is the same! 
+        ys = [ys, full(yc)];
+        ts = [ts, thetaf];
+        gs = [gs, g];
+        zeros = [zeros, 0.0];
+    end
+
 
 %% Animate the Solution
 
@@ -78,7 +71,7 @@ end
 %remove the initial configuration of the leg from state vector
 motor_velocities = motor_velocities(1:end-1); %DONT REMOVE THE FIRST ONE
 
-%formatting the figure
+%formatting the figure;
 sz = 25;
 c = linspace(1,10,length(motor_velocities));
 %plot

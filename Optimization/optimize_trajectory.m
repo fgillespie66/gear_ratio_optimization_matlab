@@ -1,4 +1,4 @@
-function [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, gear_ratio, path)
+function [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, path)
 
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
@@ -15,11 +15,12 @@ N  = params.N;   % number of control intervals
 dt = params.dt; % dynamics dt
 T  = params.T; % duration of stance phase
 g  = params.g;
-projectile_motion = params.projectile_motion
+projectile_motion = params.projectile_motion;
 
-motor_base_torque = params.motor_base_torque
-motor_base_free_speed = params.motor_base_free_speed
-motor_torque_intercept = params.motor_torque_intercept
+motor_base_torque = params.motor_base_torque;
+motor_base_free_speed = params.motor_base_free_speed;
+motor_torque_intercept = params.motor_torque_intercept;
+gear_ratio = params.gear_ratio;
 
 p1 = params.p1;
 p2 = params.p2;
