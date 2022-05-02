@@ -16,6 +16,11 @@ motor_base_free_speed = params.motor_base_free_speed
 motor_torque_intercept = params.motor_torque_intercept
 gear_ratio = params.gear_ratio
 
+p1 = params.p1;
+p2 = params.p2;
+m_ts = params.m_ts;
+b_ts = params.b_ts;
+
 
 %% Simulate Forward the Dynamics
 
@@ -32,7 +37,8 @@ zf = z(:,end);
 thetaf = zf(2);
 
 %simulate forward projectile motion 
-t2 = dt:dt:full(t_peak);
+MAX_HEIGHT = projectile_motion(full(t_peak),yi,vi,g)
+t2 = dt:dt:2*full(t_peak); %simulate to right before impact
 ys = [];
 ts = [];
 gs = [];
@@ -70,7 +76,7 @@ for x = z
 end
 
 %remove the initial configuration of the leg from state vector
-motor_velocities = motor_velocities(2:end);
+motor_velocities = motor_velocities(1:end-1); %DONT REMOVE THE FIRST ONE
 
 %formatting the figure
 sz = 25;
@@ -79,9 +85,12 @@ c = linspace(1,10,length(motor_velocities));
 figure;
 hold on
 scatter(motor_velocities, motor_torques, sz, c, 'filled');
+%plot(motor_velocities, motor_torques); MAYBE ADD A LINE HERE FOR
+%orientation" also change the thicknesses of everything
 plot([0,motor_base_free_speed/gear_ratio],[motor_base_torque*gear_ratio,motor_base_torque*gear_ratio]); %draw the torque saturation limit line
 plot([motor_base_free_speed/gear_ratio,motor_base_free_speed/gear_ratio],[0,motor_base_torque*gear_ratio]); %draw the free speed
-plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
+%plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
+fplot(@(x) m_ts * x + b_ts); %draw the power limit line
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");

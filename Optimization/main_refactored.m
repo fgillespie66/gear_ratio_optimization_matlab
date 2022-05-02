@@ -29,6 +29,12 @@ for gear_ratio = gear_ratios
     % set gear ratio in params
     params.gear_ratio = gear_ratio;
     
+    %actuator torque-speed approx
+    params.p1 = [0,params.motor_torque_intercept*gear_ratio];
+    params.p2 = [params.motor_base_free_speed/gear_ratio, 0];
+    params.m_ts = (params.p2(2)-params.p1(2)) / (params.p2(1)-params.p1(1));
+    params.b_ts = params.motor_torque_intercept*gear_ratio;
+
     % derive dynamics
     [kinematics,dynamics] = derive_leg(gear_ratio); 
     
@@ -41,8 +47,27 @@ end
     
     
     
-    
-    
+ %% TESTING CONSTRAINTS GRAPHICALLY
+    %figure
+    %hold on
+    %plot([0,motor_base_free_speed/gear_ratio],[motor_torque_intercept*gear_ratio,0]); %draw the power limit line
+    %fplot(@(x) m_ts * x + b_ts);
+    %legend('one', 'two');
+%CORRECTION FACTOR TELLS US IT'S JUST THE y-INTERCEPT THAT'S WRONG
+
+
+
+
+
+
+
+
+
+
+
+%% NOTES FOR OTHER THINGS
+
+
 %PLAN
 %first expand this to simulate the whole leg forward 
 %second expand this to a more complex leg model
@@ -56,3 +81,33 @@ end
 
 %can we use a MATLAB function as a constraint? if we write three
 %constraints 
+
+
+
+%SOME OTHER NOTES
+%add the line as a COST? 
+%we learned that the constraint doesn't actually work in this case 
+% might need a quper quadratic cost ?? 
+
+
+%print the constraint violations at each time step 
+
+%TRY DECREASING THE TIMESTEP??? 
+%problem gets worse @ higher gear ratios, 
+%decreasing timestep significantly helped 
+
+%% OK HERE's HOW WE FIXED IT 
+
+%look @ our integration scheme 
+% V_(k+1) = Vk + Uk*dt
+
+%so the arrays look like this !!! 
+% [v1, v2, v2, v4 ... vN]
+% [u1, u2, u3, ... uN-1] 
+
+%the torques go with the FIRST time step because they get APPLIED to
+%calculate the next time step 
+
+%which also asks the question should we constrain Uk to Vk or Vk+1 ??? 
+
+   

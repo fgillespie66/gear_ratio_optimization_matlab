@@ -21,18 +21,24 @@ motor_base_torque = params.motor_base_torque
 motor_base_free_speed = params.motor_base_free_speed
 motor_torque_intercept = params.motor_torque_intercept
 
+p1 = params.p1;
+p2 = params.p2;
+m_ts = params.m_ts;
+b_ts = params.b_ts;
+
 % ---- decision variables ---------
-X = opti.variable(4,N+1); % [y, theta, dy, dtheta]
+X = opti.variable(4,N+1); % [y, theta, dy, dtheta] NOTE: this includes initial conditions ! 
 U = opti.variable(1,N);   % hip torque (could alternatively parameterize U by a spline
 F = opti.variable(1,N);   % vertical reaction force
 
 % ---- objective          ---------
+g = -9.81;
 terminal_COM          = kinematics.COM(X(:,end)); 
 terminal_com_y_height = terminal_COM(2);
 terminal_com_y_vel    = terminal_COM(4);
 
 time_to_peak   = -terminal_com_y_vel / g;           % find time when
-%projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
+projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 max_com_height = projectile_motion(time_to_peak,terminal_com_y_height,terminal_com_y_vel,g);
 
 opti.minimize(-max_com_height); % maximize peak com height
@@ -61,6 +67,13 @@ for k=1:N % loop over control intervals
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
     opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
     opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
+
+    %torque speed curve line torque <= m * velocity + b
+    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts) )
+
+    % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
+    % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
+
     %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
     opti.subject_to( 0 <= Xk1(2) <= pi/2.2 )% Knee above ground, avoid singularity
 end
@@ -75,5 +88,5 @@ opti.subject_to( X(:,1) == [0;deg2rad(10);0;0] );
 
 % ---- solve NLP              ------
 p_opts = struct('expand',true); % expand to casadi variables to SX (10x speedup)
-opti.solver('ipopt', p_opts);    % set numerical backend
+opti.solver('ipopt',p_opts);    % set numerical backend
 sol = opti.solve();             % actual solve
