@@ -3,7 +3,7 @@ close all
 
 %% GENERAL USER SET PARAMETERS
 path = '../casadi'; %CASADI PATH
-verbose = true; %plot for all gear ratios
+verbose = false; %plot for all gear ratios
 
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
