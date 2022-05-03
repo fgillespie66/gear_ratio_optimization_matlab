@@ -3,7 +3,9 @@ close all
 
 %% GENERAL USER SET PARAMETERS
 path = '../casadi'; %CASADI PATH
-verbose = true; %plot for all gear ratios
+verbose = false; %plot for all gear ratios
+save_plot = true;
+plot_best_gear = false;
 
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
@@ -27,10 +29,12 @@ params.g  = -9.81;
 params.projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 
 %% Loop over gear ratios
-gear_ratios = 1:0.5:40;
+gear_ratios = 1:2:10;%1:0.5:40;
 
 max_heights = zeros(length(gear_ratios), 1);
-
+best_gear = "";
+best_height = 0;
+best_gear_params = params;
 
 for i = 1:length(gear_ratios)
     % set gear ratio in params
@@ -57,13 +61,24 @@ for i = 1:length(gear_ratios)
     terminal_COM_sol = kinematics.COM(z(:,end));
     yi = 0;
     vi    = terminal_COM_sol(4);
-    t_peak   = -vi / params.g;  
+    t_peak  = -vi / params.g;  
     zf = z(:,end);
     thetaf = zf(2);
    
-    peak_height = full(params.projectile_motion(full(t_peak),yi,vi,params.g));
-    max_heights(i) = peak_height; 
-    % error: conversion to double from casadi.DM is not possible
+    max_heights(i) = full(params.projectile_motion(full(t_peak),yi,vi,params.g));
+    if max_heights(i) > best_height
+        best_gear = params.gear_ratio;
+        best_gear_params = params;
+        best_gear_params.t = t;
+        best_gear_params.t_peak = t_peak;
+        best_gear_params.yi = yi;
+        best_gear_params.vi = vi;
+        best_gear_params.z = z;
+        best_gear_params.thetaf = thetaf;
+        best_gear_params.kinematics = kinematics;
+        best_gear_params.U = U;
+        best_gear_params.sol = sol;
+    end
     
     % optionally create graphics of leg jumping and torque plot
    if verbose
@@ -76,11 +91,26 @@ for i = 1:length(gear_ratios)
        create_graphics(kinematics, params, U, sol, path)
    end
 end
+
+% create gear ratio vs max height plot
+fig = figure;
+hold on
+scatter(gear_ratios, max_heights, 'filled');
+title("Peak Jump Height vs Gear Ratio for 1D Hopper")
+xlabel("Gear Ratio");
+ylabel("Peak Height (m)");
+grid on
+if save_plot
+    saveas(fig, "heightVsGear.png");
+end
+
+if plot_best_gear
+    create_graphs(best_gear_params.kinematics, best_gear_params. best_gear_params.U, best_gear_params.sol, path);
+end
+
     
-% Fiona's changes to make:kinematics
-% graph of all gear ratio vs max height, 
-% rename figures to include gear
-% ratio somewhere, add saving of graph vs height
+% Fiona's changes to make:
+% add saving of graph vs height
 % fix coloring
     
     

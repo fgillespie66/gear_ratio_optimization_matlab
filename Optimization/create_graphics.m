@@ -53,8 +53,9 @@ t_fs = [t, t2];
 z_fs = [z, zs];
 
 %animate the solution
-figure;
-animate_simple(t_fs,z_fs,kinematics,1);
+fig = figure;
+animate_simple(t_fs,z_fs,kinematics,1, gear_ratio);
+
 
 %% Plot Actuation Efforts + True Torque Speed Curve
 
@@ -86,6 +87,6 @@ plot([motor_base_free_speed/gear_ratio,motor_base_free_speed/gear_ratio],[0,moto
 fplot(@(x) m_ts * x + b_ts); %draw the power limit line
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
-title("Actuation Command Overlayed on TS Curve during Stance");
+title("Gear Ratio: " + gear_ratio + " - Stance Actuation Overlayed on TS Curve");
 legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
 grid on

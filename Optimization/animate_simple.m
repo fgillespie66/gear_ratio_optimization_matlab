@@ -1,10 +1,11 @@
-function animate_simple(t,z,kinematics,speed)
+function animate_simple(t,z,kinematics,speed, gear_ratio)
 
     axis([-.2 .4 -.1 1.2])
     h_ground = plot([-1 1],[0 0],'k-','LineWidth',5);
     hold on
+    title("Gear Ratio: " + gear_ratio)
     h_leg    = plot([0],[0],'-o',...
-                'LineWidth',3,...
+                'LineWidth',3,..., 
                 'MarkerEdgeColor','r',...
                 'MarkerFaceColor','r',...
                 'MarkerSize',6); 
