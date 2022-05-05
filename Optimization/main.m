@@ -14,6 +14,10 @@ motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
 
+%mini cheetah parameters
+body_width = 0.45;
+body_mass = 3.5; %mass of body in kg 
+
 %actuator torque-speed approx
 p1 = [0,motor_torque_intercept*gear_ratio];
 p2 = [motor_base_free_speed/gear_ratio, 0];
@@ -21,7 +25,7 @@ m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
 
 %derive dynamics
-[kinematics,dynamics] = derive_leg(gear_ratio); 
+[kinematics,dynamics] = derive_leg(gear_ratio, body_mass/2); 
 
 %% Formulate Optimization
 % via trapezoidal Collocation
@@ -137,7 +141,7 @@ z_fs = [z, zs];
 
 %animate the solution
 figure;
-animate_simple(t_fs,z_fs,kinematics,1);
+animate_simple(t_fs,z_fs,kinematics,1, gear_ratio, body_width);
 
 %% Plot Actuation Efforts + True Torque Speed Curve
 

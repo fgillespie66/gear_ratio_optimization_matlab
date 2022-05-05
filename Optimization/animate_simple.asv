@@ -1,6 +1,6 @@
 function animate_simple(t,z,kinematics,speed, gear_ratio, body_width)
 
-    axis([-.4 .5 -.1 1.2])
+    axis([-.4 .4 -.1 1.2])
     h_ground = plot([-1 1],[0 0],'k-','LineWidth',5);
     hold on
     title("Gear Ratio: " + gear_ratio)
@@ -49,5 +49,5 @@ end
 function drw_now()
     drawnow;
     axis equal % sets the X:Y aspect ratio 1:1; otherwise things will look stretched
-    axis([-.4 .5 -.1 1.2])
+    axis([-.2 .4 -.1 1.2])
 end

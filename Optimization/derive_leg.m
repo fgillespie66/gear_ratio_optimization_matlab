@@ -1,4 +1,4 @@
-function [kinematics,dynamics] = derive_leg(gear_ratio) 
+function [kinematics,dynamics] = derive_leg(gear_ratio, payload_mass) 
 % Two link hopper (need to draw a diagram of the leg to reference)
 %
 % Foot and hip are constrained to a vertical rail
@@ -38,7 +38,7 @@ c1 = 0.098;
 c2 = 0.209/2;
 m1 = 0.092;   % link 1 mass
 m2 = 0.06;   % link 2 mass
-mh = 0.440;   % hip mass
+mh = 0.440+payload_mass/2;   % hip mass
 I1 = 0.05;  % link 1 inertia
 I2 = 0.05;  % link 2 inertia
 Ir = 33*10^(-6);  % rotor inertia kgm^2
