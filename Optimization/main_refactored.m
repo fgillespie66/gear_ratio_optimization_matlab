@@ -29,7 +29,7 @@ params.g  = -9.81;
 params.projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 
 %% Loop over gear ratios
-gear_ratios = 1:2:10;%1:0.5:40;
+gear_ratios = 1:3:6; %1:0.5:40;
 
 max_heights = zeros(length(gear_ratios), 1);
 best_gear = "";
@@ -101,16 +101,19 @@ xlabel("Gear Ratio");
 ylabel("Peak Height (m)");
 grid on
 if save_plot
-    saveas(fig, "heightVsGear.png");
+    first = gear_ratios(1)
+    step =  gear_ratios(2)-gear_ratios(1)
+    last = step*length(gear_ratios)+gear_ratios(1)-1
+    filename = "/Graphics/heightVsGear"+ first + ":" + step + ":"+ last +".png";
+    saveas(fig, pwd + filename);
 end
 
 if plot_best_gear
-    create_graphs(best_gear_params.kinematics, best_gear_params. best_gear_params.U, best_gear_params.sol, path);
+    create_graphics(best_gear_params.kinematics, best_gear_params. best_gear_params.U, best_gear_params.sol, path);
 end
 
     
 % Fiona's changes to make:
-% add saving of graph vs height
 % fix coloring
     
     
