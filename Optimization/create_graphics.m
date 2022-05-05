@@ -90,3 +90,4 @@ ylabel("Motor Torques (Nm)");
 title("Gear Ratio: " + gear_ratio + " - Stance Actuation Overlayed on TS Curve");
 legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
 grid on
+colormap(cool(10))

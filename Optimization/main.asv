@@ -173,7 +173,7 @@ colormap(colors_p)
 
 %draw the constraints
 line1 = [m_ts,b_ts];
-line2 = [0, motor_base_torque*gear_ratio, motor_base_free_speed/gear_ratio, motor_base_torque*gear_ratio];
+line2 = [0, motor_base_torque*gear_ratio, motor_base_free_speed/gear_ratio,  gmotor_base_torque*gear_ratio];
 [x_int,y_int] = line_intersection(line1,line2);
 ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio/5)*5],[ceil(motor_base_torque*gear_ratio/5)*5,ceil(motor_base_torque*gear_ratio/5)*5]);
 ar = area([-5,x_int,motor_base_free_speed/gear_ratio],[motor_base_torque*gear_ratio,motor_base_torque*gear_ratio, 0]);
@@ -182,23 +182,14 @@ ar2.EdgeColor = '#808080';
 ar.FaceColor = '#fbb13c';
 ar2.FaceColor = '#73d2de';
 
-%draw the grid
-% Define x and y grid
-xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio/5)*5; 
-ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio/5)*5; 
-
 %plot the trajectory
 scatter(motor_velocities, motor_torques, sz, c, 'filled');
-
-% plot grid lines with red lines and a width of 2
-xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
-yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
 
 %fplot(@(x) m_ts * x + b_ts); %draw the power limit line
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");
-legend('Unattainable Region', 'Motor Operation Region', 'Trajectory Start');
+legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
 grid on
 
 
