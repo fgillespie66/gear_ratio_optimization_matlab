@@ -95,6 +95,7 @@ for k=1:N % loop over control intervals
 
     %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
     opti.subject_to( 0 <= l*sin(Xk1(2)) + l*sin(Xk1(3)) + Xk1(1))
+    opti.subject_to( 0 <= l*sin(Xk1(3)) + Xk1(1))
     opti.subject_to( 0 <= Xk1(2) <= pi/2 )
     opti.subject_to( pi/2 <= Xk1(3) <= 3*pi/2 )% Knee above ground, avoid singularity
 end
@@ -155,7 +156,7 @@ z_fs = [z, zs];
 
 %animate the solution
 figure;
-speed = 0.25;
+speed = 1;
 animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio, body_width);
 
 %% Plot Actuation Efforts + True Torque Speed Curve
@@ -166,19 +167,26 @@ animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio, body_width);
 %WILL NEED TO FIX THIS TOO 
 
 motor_torques = sol.value(U);
-motor_velocities = [];
+V1s = [];
+V2s = [];
+U1s = [];
+U2s = [];
 for x = z
-    %velocity = abs(x(end)); %take the absolute value of the actuation commands
-    velocity = x(end);
-    motor_velocities = [motor_velocities, velocity];
+    V1s = [V1s, x(5)];
+    V2s = [V2s, -x(6)];
+end
+for U12 = motor_torques
+    U1s = [U1s, U12(1)];
+    U2s = [U2s, -U12(2)];
 end
 
 %remove the initial configuration of the leg from state vector
-motor_velocities = motor_velocities(1:end-1); %DONT REMOVE THE FIRST ONE
+V1s = V1s(1:end-1); %DONT REMOVE THE FIRST ONE
+V2s = V2s(1:end-1);
 
 %formatting the figure
 sz = 25;
-c = linspace(1,10,length(motor_velocities));
+c = linspace(1,10,length(V1s));
 %plot
 figure;
 hold on
@@ -206,7 +214,8 @@ xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio/5)*5;
 ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio/5)*5; 
 
 %plot the trajectory
-scatter(motor_velocities, motor_torques, sz, c, 'filled');
+scatter(V1s, U1s, sz, c, 'filled');
+scatter(V2s, U2s, sz, c, 'oe');
 
 % plot grid lines with red lines and a width of 2
 xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
@@ -216,7 +225,7 @@ yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");
-legend('Unattainable Region', 'Motor Operation Region', 'Trajectory Start');
+legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
 grid on
 
 

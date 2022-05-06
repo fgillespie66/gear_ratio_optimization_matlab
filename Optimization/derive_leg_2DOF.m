@@ -1,4 +1,4 @@
-function [kinematics,dynamics] = derive_leg_2DOF(gear_ratio, payload_mass) 
+function [kinematics,dynamics] = derive_leg_2DOF(gr1, gr2, payload_mass) 
 % Two link hopper (need to draw a diagram of the leg to reference)
 %
 % Foot and hip are constrained to a vertical rail
@@ -33,7 +33,8 @@ mh = 0.440+payload_mass/2;   % hip mass
 I1 = 0.05;  % link 1 inertia
 I2 = 0.05;  % link 2 inertia
 Ir = 33*10^(-6);  % rotor inertia kgm^2
-N  = gear_ratio;     % gear ratio
+N1  = gr1;     % gear ratio
+N2  = gr2;     % gear ratio
 g = 9.81;
 
 % Group terms for later use
@@ -92,8 +93,8 @@ M2Q = @(M,w) simplify(jacobian(w,dq)'*(M));
 % of a rigid body.
 T1  = (1/2)*m1*dot(drcm1, drcm1) + (1/2)* I1 * dth1^2;   % link 1 KE
 T2  = (1/2)*m2*dot(drcm2, drcm2) + (1/2)* I2 * dth2^2;   % link 2 KE
-T2r = (1/2)*Ir*(dth2 + N*dth2)^2;                          % link 2 rotor inertia
-T1r = (1/2)*Ir*(dth1 + N*dth1 + dth2)^2;                   % link 1 rotor inertia include rotor of link 2
+T2r = (1/2)*Ir*(dth2 + N2*dth2)^2;                          % link 2 rotor inertia
+T1r = (1/2)*Ir*(dth1 + N1*dth1 + dth2)^2;                   % link 1 rotor inertia include rotor of link 2
 Tcom  = (1/2)*mh*dot(drh, drh);                            % hip KE
 
 % Define potential energies. See Lecture 6 formulas for gravitational 

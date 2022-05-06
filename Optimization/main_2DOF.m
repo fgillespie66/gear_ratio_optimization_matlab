@@ -9,7 +9,8 @@ import casadi.*
 %% Derive dynamics
 
 %actuator base parameters
-gear_ratio = 6; %NEED TO ADD IN TWO GEAR RATIOS
+gear_ratio1 = 6; %NEED TO ADD IN TWO GEAR RATIOS
+gear_ratio2 = 8; %NEED TO ADD IN TWO GEAR RATIOS
 motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
@@ -22,13 +23,13 @@ body_width = 0.45;
 body_mass = 3.5; %mass of body in kg 
 
 %actuator torque-speed approx
-p1 = [0,motor_torque_intercept*gear_ratio];
-p2 = [motor_base_free_speed/gear_ratio, 0];
+p1 = [0,motor_torque_intercept*gear_ratio1];
+p2 = [motor_base_free_speed/gear_ratio1, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
-b_ts = motor_torque_intercept*gear_ratio;
+b_ts = motor_torque_intercept*gear_ratio1;
 
 %derive dynamics
-[kinematics,dynamics] = derive_leg_2DOF(gear_ratio, body_mass/2); 
+[kinematics,dynamics] = derive_leg_2DOF(gear_ratio1, gear_ratio2, body_mass/2); 
 
 %% Formulate Optimization
 % via trapezoidal Collocation
@@ -80,8 +81,8 @@ for k=1:N % loop over control intervals
     %Vm = Xk(end);
     opti.subject_to( Xk1(1) == 0 )      % Foot on ground
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
-    opti.subject_to( -motor_base_torque*gear_ratio <= Uk1 <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
-    opti.subject_to( -motor_base_torque*gear_ratio <= Uk2 <= motor_base_torque*gear_ratio)
+    opti.subject_to( -motor_base_torque*gear_ratio1 <= Uk1 <= motor_base_torque*gear_ratio1)   % Control limits INCLUDE GEAR RATIO
+    opti.subject_to( -motor_base_torque*gear_ratio2 <= Uk2 <= motor_base_torque*gear_ratio2)
     %opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
@@ -157,7 +158,7 @@ z_fs = [z, zs];
 %animate the solution
 figure;
 speed = 1;
-animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio, body_width);
+animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio1, body_width);
 
 %% Plot Actuation Efforts + True Torque Speed Curve
 
@@ -167,35 +168,43 @@ animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio, body_width);
 %WILL NEED TO FIX THIS TOO 
 
 motor_torques = sol.value(U);
-motor_velocities = [];
+V1s = [];
+V2s = [];
+U1s = [];
+U2s = [];
 for x = z
-    %velocity = abs(x(end)); %take the absolute value of the actuation commands
-    velocity = x(end);
-    motor_velocities = [motor_velocities, velocity];
+    V1s = [V1s, x(5)];
+    V2s = [V2s, -x(6)];
+end
+for U12 = motor_torques
+    U1s = [U1s, U12(1)];
+    U2s = [U2s, -U12(2)];
 end
 
 %remove the initial configuration of the leg from state vector
-motor_velocities = motor_velocities(1:end-1); %DONT REMOVE THE FIRST ONE
+V1s = V1s(1:end-1); %DONT REMOVE THE FIRST ONE
+V2s = V2s(1:end-1);
 
 %formatting the figure
 sz = 25;
-c = linspace(1,10,length(motor_velocities));
 %plot
 figure;
 hold on
 %create color map
-length = 5;
+length = length(V1s);
 red = [216, 17, 89]/255;
 pink = [143, 45, 86]/255;
-colors_p = [linspace(red(1),pink(1),length)', linspace(red(2),pink(2),length)', linspace(red(3),pink(3),length)'];
-colormap(colors_p)
+colors_tau1 = [linspace(red(1),pink(1),length)', linspace(red(2),pink(2),length)', linspace(red(3),pink(3),length)'];
+blue = [90, 169, 230]/255;
+lightblue = [127, 200, 248]/255;
+colors_tau2 = [linspace(blue(1),lightblue(1),length)', linspace(blue(2),lightblue(2),length)', linspace(blue(3),lightblue(3),length)'];
 
 %draw the constraints
 line1 = [m_ts,b_ts];
-line2 = [0, motor_base_torque*gear_ratio, motor_base_free_speed/gear_ratio, motor_base_torque*gear_ratio];
+line2 = [0, motor_base_torque*gear_ratio1, motor_base_free_speed/gear_ratio1, motor_base_torque*gear_ratio1];
 [x_int,y_int] = line_intersection(line1,line2);
-ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio/5)*5],[ceil(motor_base_torque*gear_ratio/5)*5,ceil(motor_base_torque*gear_ratio/5)*5]);
-ar = area([-5,x_int,motor_base_free_speed/gear_ratio],[motor_base_torque*gear_ratio,motor_base_torque*gear_ratio, 0]);
+ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio1/5)*5],[ceil(motor_base_torque*gear_ratio1/5)*5,ceil(motor_base_torque*gear_ratio1/5)*5]);
+ar = area([-5,x_int,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1, 0]);
 ar.EdgeColor = '#808080';
 ar2.EdgeColor = '#808080';
 ar.FaceColor = '#fbb13c';
@@ -203,11 +212,13 @@ ar2.FaceColor = '#73d2de';
 
 %draw the grid
 % Define x and y grid
-xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio/5)*5; 
-ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio/5)*5; 
+xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio1/5)*5; 
+ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio1/5)*5; 
 
 %plot the trajectory
-scatter(motor_velocities, motor_torques, sz, c, 'filled');
+scatter(V1s, U1s, sz, colors_tau1, 'filled');
+scatter(V2s, U2s, sz, colors_tau2, 'filled');
+%colorbar
 
 % plot grid lines with red lines and a width of 2
 xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
@@ -217,7 +228,7 @@ yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");
-legend('Unattainable Region', 'Motor Operation Region', 'Trajectory Start');
+legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
 grid on
 
 
