@@ -9,10 +9,13 @@ import casadi.*
 %% Derive dynamics
 
 %actuator base parameters
-gear_ratio = 6;
+gear_ratio = 6; %NEED TO ADD IN TWO GEAR RATIOS
 motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
+
+%need for a constraint later
+l = 0.209;
 
 %mini cheetah parameters
 body_width = 0.45;
@@ -25,21 +28,21 @@ m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio;
 
 %derive dynamics
-[kinematics,dynamics] = derive_leg(gear_ratio, body_mass/2); 
+[kinematics,dynamics] = derive_leg_2DOF(gear_ratio, body_mass/2); 
 
 %% Formulate Optimization
 % via trapezoidal Collocation
 
 opti = casadi.Opti(); % Optimization problem
 
-step_scaling = 5;
+step_scaling = 1;
 N  = 50*step_scaling;   % number of control intervals
 dt = 0.025/step_scaling; % dynamics dt
 T  = N*dt; % duration of stance phase
 
 % ---- decision variables ---------
-X = opti.variable(4,N+1); % [y, theta, dy, dtheta] NOTE: this includes initial conditions ! 
-U = opti.variable(1,N);   % hip torque (could alternatively parameterize U by a spline
+X = opti.variable(6,N+1); % [y, theta, dy, dtheta] 
+U = opti.variable(2,N);   % NOW WE HAVE TWO JOINT TORQUES
 F = opti.variable(1,N);   % vertical reaction force
 
 % ---- objective          ---------
@@ -63,34 +66,43 @@ for k=1:N % loop over control intervals
     Fk  = F(:,k);
     Ak1 = dynamics.A(Xk1);
     bk1 = dynamics.b(Xk1, Uk, Fk);
-   opti.subject_to( Xk1(1:2) - Xk(1:2) == dt*Xk1(3:4) ) % Euler integration - position
-   opti.subject_to( Ak1*(Xk1(3:4)-Xk(3:4))  == dt*bk1 ) % Euler integration - velocity
+    opti.subject_to( Xk1(1:3) - Xk(1:3) == dt*Xk1(4:6) ) % Euler integration - position
+    opti.subject_to( Ak1*(Xk1(4:6)-Xk(4:6))  == dt*bk1 ) % Euler integration - velocity
 end
 
 % ---- path constraints -----------
 for k=1:N % loop over control intervals
     Xk  = X(:,k); 
     Xk1 = X(:,k+1);
-    Uk  = U(:,k);
+    Uk1  = U(1,k);
+    Uk2  = U(2,k);
     Fk  = F(:,k);
-    Vm = Xk(end);
-    opti.subject_to( Xk1(1) == 0 )      % Foot in place
+    %Vm = Xk(end);
+    opti.subject_to( Xk1(1) == 0 )      % Foot on ground
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
-    opti.subject_to( -motor_base_torque*gear_ratio <= Uk <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
-    opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
+    opti.subject_to( -motor_base_torque*gear_ratio <= Uk1 <= motor_base_torque*gear_ratio)   % Control limits INCLUDE GEAR RATIO
+    opti.subject_to( -motor_base_torque*gear_ratio <= Uk2 <= motor_base_torque*gear_ratio)
+    %opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
 
     %torque speed curve line torque <= m * velocity + b
-    opti.subject_to( (Uk - m_ts * Vm) <= (b_ts) )
+    %opti.subject_to( (Uk - m_ts * Vm) <= (b_ts) )
 
     % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
     % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
 
+    %add constraint where ENTIRE LEG STAYS ABOVE THE GROUND
+
+
     %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
-    opti.subject_to( 0 <= Xk1(2) <= pi/2.2 )% Knee above ground, avoid singularity
+    opti.subject_to( 0 <= l*sin(Xk1(2)) + l*sin(Xk1(3)) + Xk1(1))
+    opti.subject_to( 0 <= l*sin(Xk1(3)) + Xk1(1))
+    opti.subject_to( 0 <= Xk1(2) <= pi/2 )
+    opti.subject_to( pi/2 <= Xk1(3) <= 3*pi/2 )% Knee above ground, avoid singularity
 end
 
 % ---- boundary conditions --------
-opti.subject_to( X(:,1) == [0;deg2rad(10);0;0] );
+opti.subject_to( X(:,1) == [0;deg2rad(60);deg2rad(120);0;0;0] );
+%opti.subject_to( X(:,1) == [0;deg2rad(45);deg2rad(135);0;0;0] );
 
 % ---- initial values for solver ---
 %opti.set_initial(X, );
@@ -114,19 +126,22 @@ yi = 0;
 vi    = terminal_COM_sol(4);
 t_peak   = -vi / g;  
 zf = z(:,end);
-thetaf = zf(2);
+theta1f = zf(2);
+theta2f = zf(3);
 
 %simulate forward projectile motion 
 MAX_HEIGHT = projectile_motion(full(t_peak),yi,vi,g)
 t2 = dt:dt:2*full(t_peak); %simulate to right before impact
 ys = [];
-ts = [];
+t1s = [];
+t2s = [];
 gs = [];
 zeros = [];
 for time = t2
     yc = projectile_motion(time,yi,vi,g); %use this with yi = 0 but vi is the same! 
     ys = [ys, full(yc)];
-    ts = [ts, thetaf];
+    t1s = [t1s, theta1f];
+    t2s = [t2s, theta2f];
     gs = [gs, g];
     zeros = [zeros, 0.0];
 end
@@ -135,18 +150,22 @@ end
 
 %prep the arrays for plotting
 t2 = t2+N*dt;
-zs = [ys; ts; gs; zeros];
+zs = [ys; t1s; t2s; gs; zeros; zeros];
 t_fs = [t, t2];
 z_fs = [z, zs];
 
 %animate the solution
 figure;
-animate_simple(t_fs,z_fs,kinematics,1, gear_ratio, body_width);
+speed = 1;
+animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio, body_width);
 
 %% Plot Actuation Efforts + True Torque Speed Curve
 
 %populate the torque curve and the speed curve 
 %motor_torques = abs(sol.value(U)); %take the absolute value of torques
+
+%WILL NEED TO FIX THIS TOO 
+
 motor_torques = sol.value(U);
 motor_velocities = [];
 for x = z
@@ -173,7 +192,7 @@ colormap(colors_p)
 
 %draw the constraints
 line1 = [m_ts,b_ts];
-line2 = [0, motor_base_torque*gear_ratio, motor_base_free_speed/gear_ratio,  gmotor_base_torque*gear_ratio];
+line2 = [0, motor_base_torque*gear_ratio, motor_base_free_speed/gear_ratio, motor_base_torque*gear_ratio];
 [x_int,y_int] = line_intersection(line1,line2);
 ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio/5)*5],[ceil(motor_base_torque*gear_ratio/5)*5,ceil(motor_base_torque*gear_ratio/5)*5]);
 ar = area([-5,x_int,motor_base_free_speed/gear_ratio],[motor_base_torque*gear_ratio,motor_base_torque*gear_ratio, 0]);
@@ -182,14 +201,23 @@ ar2.EdgeColor = '#808080';
 ar.FaceColor = '#fbb13c';
 ar2.FaceColor = '#73d2de';
 
+%draw the grid
+% Define x and y grid
+xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio/5)*5; 
+ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio/5)*5; 
+
 %plot the trajectory
 scatter(motor_velocities, motor_torques, sz, c, 'filled');
+
+% plot grid lines with red lines and a width of 2
+xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
+yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
 
 %fplot(@(x) m_ts * x + b_ts); %draw the power limit line
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");
-legend('Trajectory Start', 'Saturation Torque', 'Free Speed', 'Physical Limit');
+legend('Unattainable Region', 'Motor Operation Region', 'Trajectory Start');
 grid on
 
 
