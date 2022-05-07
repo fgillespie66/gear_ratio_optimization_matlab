@@ -18,6 +18,10 @@ params.motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation tor
 params.motor_base_free_speed = 190; %rads per second mini cheetah motor
 params.motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
 
+% mini cheetah parameters
+params.body_width = 0.45;
+params.body_mass = 3.5; % mass of body in kg
+
 % trajectory related
 step_scaling = 3;
 params.N  = 50*step_scaling;   % number of control intervals
@@ -29,7 +33,8 @@ params.g  = -9.81;
 params.projectile_motion = @(t,y,v,a) y + v*t + 0.5*a*t^2; % anonymous function for projectile motion
 
 %% Loop over gear ratios
-gear_ratios = 1:3:6; %1:0.5:40;
+% if weight included, gear ratio cannot start at 1 (impossible to solve)
+gear_ratios = 5:0.5:40;
 
 max_heights = zeros(length(gear_ratios), 1);
 best_gear = "";
@@ -47,7 +52,7 @@ for i = 1:length(gear_ratios)
     params.b_ts = params.motor_torque_intercept*params.gear_ratio;
 
     % derive dynamics
-    [kinematics,dynamics] = derive_leg(params.gear_ratio); 
+    [kinematics,dynamics] = derive_leg(params.gear_ratio, params.body_mass/2); 
     
     % formulate optimization via trapezoidal collocation
     [X, U, sol] = optimize_trajectory(kinematics, dynamics, params, path);
@@ -104,7 +109,7 @@ if save_plot
     first = gear_ratios(1)
     step =  gear_ratios(2)-gear_ratios(1)
     last = step*length(gear_ratios)+gear_ratios(1)-1
-    filename = "/Graphics/heightVsGear"+ first + ":" + step + ":"+ last +".png";
+    filename = "/Graphics/heightVsGearWithWeight"+ first + ":" + step + ":"+ last +".png";
     saveas(fig, pwd + filename);
 end
 
@@ -115,6 +120,8 @@ end
     
 % Fiona's changes to make:
 % fix coloring
+% 3D plot, gear_ratio, mass (0:0.1:7), max height
+    % actually just mass vs optimal gear ratio
     
     
  %% TESTING CONSTRAINTS GRAPHICALLY

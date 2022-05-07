@@ -54,7 +54,7 @@ z_fs = [z, zs];
 
 %animate the solution
 fig = figure;
-animate_simple(t_fs,z_fs,kinematics,1, gear_ratio);
+animate_simple(t_fs,z_fs,kinematics,1, gear_ratio, params.body_width);
 
 
 %% Plot Actuation Efforts + True Torque Speed Curve
