@@ -9,24 +9,29 @@ import casadi.*
 %% Derive dynamics
 
 %actuator base parameters
-gear_ratio1 = 6; %NEED TO ADD IN TWO GEAR RATIOS
-gear_ratio2 = 8; %NEED TO ADD IN TWO GEAR RATIOS
+gear_ratio1 = 8; %HIP
+gear_ratio2 = 6; %KNEE
 motor_base_torque = 2.75; %Nm based on mini cheetah motor, saturation torque
 motor_base_free_speed = 190; %rads per second mini cheetah motor
 motor_torque_intercept = 3.677777777777778; %y-intercept of the power line Nm
 
-%need for a constraint later
-l = 0.209;
-
 %mini cheetah parameters
 body_width = 0.45;
 body_mass = 3.5; %mass of body in kg 
+%need for a constraint later
+l = 0.209; %make sure this matches derive_leg_2DOF
 
 %actuator torque-speed approx
+%first actuator
 p1 = [0,motor_torque_intercept*gear_ratio1];
 p2 = [motor_base_free_speed/gear_ratio1, 0];
 m_ts = (p2(2)-p1(2)) / (p2(1)-p1(1));
 b_ts = motor_torque_intercept*gear_ratio1;
+%second actuator
+p1k = [0,motor_torque_intercept*gear_ratio2];
+p2k = [motor_base_free_speed/gear_ratio2, 0];
+m_tsk = (p2k(2)-p1k(2)) / (p2k(1)-p1k(1));
+b_tsk = motor_torque_intercept*gear_ratio2;
 
 %derive dynamics
 [kinematics,dynamics] = derive_leg_2DOF(gear_ratio1, gear_ratio2, body_mass/2); 
@@ -36,7 +41,7 @@ b_ts = motor_torque_intercept*gear_ratio1;
 
 opti = casadi.Opti(); % Optimization problem
 
-step_scaling = 1;
+step_scaling = 5;
 N  = 50*step_scaling;   % number of control intervals
 dt = 0.025/step_scaling; % dynamics dt
 T  = N*dt; % duration of stance phase
@@ -75,28 +80,30 @@ end
 for k=1:N % loop over control intervals
     Xk  = X(:,k); 
     Xk1 = X(:,k+1);
-    Uk1  = U(1,k);
-    Uk2  = U(2,k);
+    Uk  = U(:,k);
+    Uk1  = Uk(1);
+    Uk2  = Uk(2);
     Fk  = F(:,k);
-    %Vm = Xk(end);
+    Vm1 = Xk(5);
+    Vm2 = Xk(6);
     opti.subject_to( Xk1(1) == 0 )      % Foot on ground
     opti.subject_to( Fk >= 0 )          % Unilateral force constraint (no pulling the ground)
+    %torques
     opti.subject_to( -motor_base_torque*gear_ratio1 <= Uk1 <= motor_base_torque*gear_ratio1)   % Control limits INCLUDE GEAR RATIO
     opti.subject_to( -motor_base_torque*gear_ratio2 <= Uk2 <= motor_base_torque*gear_ratio2)
-    %opti.subject_to( -motor_base_free_speed/gear_ratio <= Vm <= motor_base_free_speed/gear_ratio)
+    %velocities constraint
+    opti.subject_to( -motor_base_free_speed/gear_ratio1 <= Vm1 <= motor_base_free_speed/gear_ratio1)
+    opti.subject_to( -motor_base_free_speed/gear_ratio2 <= Vm2 <= motor_base_free_speed/gear_ratio2)
 
     %torque speed curve line torque <= m * velocity + b
-    %opti.subject_to( (Uk - m_ts * Vm) <= (b_ts) )
+    opti.subject_to( (Uk1 - m_ts * Vm1) <= (b_ts) )
+    opti.subject_to( (Uk2 - m_tsk * Vm2) >= (-b_tsk) ) 
 
-    % FROM MATT: TRY TO FORMAT ALL OF THESE CONSTRAINTS AS A SINGLE Ax <= b
-    % CONSTRAINT!!! THAT MIGHT MAKE THE OPTIMIZER HAPPIER 
-
-    %add constraint where ENTIRE LEG STAYS ABOVE THE GROUND
-
-
-    %add in a limit for the motor velocity (i.e. we cap theta_dot)! 
+    %add in constraint that whole leg must stay above the ground 
     opti.subject_to( 0 <= l*sin(Xk1(2)) + l*sin(Xk1(3)) + Xk1(1))
     opti.subject_to( 0 <= l*sin(Xk1(3)) + Xk1(1))
+
+    %add in some joint limits to reduce search space
     opti.subject_to( 0 <= Xk1(2) <= pi/2 )
     opti.subject_to( pi/2 <= Xk1(3) <= 3*pi/2 )% Knee above ground, avoid singularity
 end
@@ -120,6 +127,7 @@ sol = opti.solve();             % actual solve
 % ---- post-processing        ------
 t = 0:dt:(N*dt);
 z = sol.value(X);
+Fs = sol.value(F);
 
 %---- simulating forward the dyanmics ----
 terminal_COM_sol = kinematics.COM(z(:,end));
@@ -163,10 +171,6 @@ animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio1, body_width);
 %% Plot Actuation Efforts + True Torque Speed Curve
 
 %populate the torque curve and the speed curve 
-%motor_torques = abs(sol.value(U)); %take the absolute value of torques
-
-%WILL NEED TO FIX THIS TOO 
-
 motor_torques = sol.value(U);
 V1s = [];
 V2s = [];
@@ -199,40 +203,85 @@ blue = [90, 169, 230]/255;
 lightblue = [127, 200, 248]/255;
 colors_tau2 = [linspace(blue(1),lightblue(1),length)', linspace(blue(2),lightblue(2),length)', linspace(blue(3),lightblue(3),length)'];
 
-%draw the constraints
-line1 = [m_ts,b_ts];
-line2 = [0, motor_base_torque*gear_ratio1, motor_base_free_speed/gear_ratio1, motor_base_torque*gear_ratio1];
-[x_int,y_int] = line_intersection(line1,line2);
-ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio1/5)*5],[ceil(motor_base_torque*gear_ratio1/5)*5,ceil(motor_base_torque*gear_ratio1/5)*5]);
-ar = area([-5,x_int,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1, 0]);
-ar.EdgeColor = '#808080';
-ar2.EdgeColor = '#808080';
-ar.FaceColor = '#fbb13c';
-ar2.FaceColor = '#73d2de';
-
-%draw the grid
-% Define x and y grid
-xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio1/5)*5; 
-ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio1/5)*5; 
+%plot the tau-s constraints
+plot([0,motor_base_free_speed/gear_ratio1],[motor_torque_intercept*gear_ratio1,0]);
+plot([0,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1]);
+plot([motor_base_free_speed/gear_ratio1,motor_base_free_speed/gear_ratio1],[0,motor_base_torque*gear_ratio1]);
+plot([0,motor_base_free_speed/gear_ratio2],[motor_torque_intercept*gear_ratio2,0]);
+plot([0,motor_base_free_speed/gear_ratio2],[motor_base_torque*gear_ratio2,motor_base_torque*gear_ratio2]);
+plot([motor_base_free_speed/gear_ratio2,motor_base_free_speed/gear_ratio2],[0,motor_base_torque*gear_ratio2]);
 
 %plot the trajectory
 scatter(V1s, U1s, sz, colors_tau1, 'filled');
 scatter(V2s, U2s, sz, colors_tau2, 'filled');
-%colorbar
-
-% plot grid lines with red lines and a width of 2
-xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
-yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
+%plot(V1s, U1s);
+%plot(V2s, U2s);
 
 %fplot(@(x) m_ts * x + b_ts); %draw the power limit line
 xlabel("Motor Velocity (rads/s)");
 ylabel("Motor Torques (Nm)");
 title("Actuation Command Overlayed on TS Curve during Stance");
-legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
+%legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
+grid on
+
+%plot the "gem" of strange looping action we found
+figure
+p = plot(V1s, U1s, '-o', 'LineWidth', 2);
+p.MarkerFaceColor = [1 0.5 0];
+p.MarkerSize = 5;
+p.MarkerEdgeColor = [1 0.5 0];
+xlabel("Motor Velocity (rads/s)");
+ylabel("Motor Torques (Nm)");
+title("Hip Joint Path Through T-S Plane Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
+grid on
+
+%plot trajectories as a function of time
+figure
+subplot(3,1,1);
+hold on
+plot(t(:,1:end-1), U1s);
+plot(t(:,1:end-1), U2s);
+xlabel("Simulation Time - Stance Phase (s)");
+ylabel("Motor Torques (Nm)");
+title("Torque Trajectories of a Single Jump; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
+legend('Hip Joint', 'Knee Joint');
+grid on
+hold off
+subplot(3,1,2);
+hold on
+plot(t(:,1:end-1), V1s);
+plot(t(:,1:end-1), V2s);
+xlabel("Simulation Time - Stance Phase (s)");
+ylabel("Motor Velocities (rads/s)");
+title("Joint Velocities of a Single Jump; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
+legend('Hip Joint', 'Knee Joint');
+grid on
+hold off
+subplot(3,1,3);
+plot(t(:,1:end-1), Fs);
+xlabel("Simulation Time - Stance Phase (s)");
+ylabel("Ground Reaction Force (N)");
+title("Ground Reaction Force vs Simulation Time; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
 grid on
 
 
 
+%% PLOTS WE SHOULD MAKE
+
+%1DOF CASE
+% - max height vs. gear ratio (line plot)
+% - trajectory torque as a function of time for the best run
+% - graph of the constraints and the torque vs. speed to show how it rides
+% the curve 
+% - add in mass and do a mass vs optimal gear ratio plot (if we search over
+% mass what's the optimal gear ratio as a function of body mass / payload
+% mass)
+
+%2DOF CASE
+% - max height vs gear ratio 1 vs gear ratio 2 (surface plot) 
+% - torque trajectories as a function of time for both joints 
+% - graph of constraints 
+% - plot of this looping action it does
 
 
 
@@ -304,3 +353,6 @@ grid on
 
 %which also asks the question should we constrain Uk to Vk or Vk+1 ??? 
 
+
+%GEMS
+%flinging itself like a trebuchet through the floor is a GEM 
