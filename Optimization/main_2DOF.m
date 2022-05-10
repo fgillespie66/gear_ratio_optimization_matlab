@@ -3,24 +3,24 @@ close all
 
 %% Dependencies
 restoredefaultpath               % "clean slate" for your matlab path
-addpath(genpath('../casadi')) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
+addpath(genpath('../casadi_mac')) % make sure you have added your OS-specific casadi folder to MATLAB-Optimization
 import casadi.*
 
 %% Output Options
-save_data = true;
-show_individual_plots = false;
+save_data = false;
+show_individual_plots = true;
 save_surface_plot = false;
 
 %% Derive dynamics
 
 %actuator base parameters
-gear1_ratios = 1:2:30; %HIP
-gear2_ratios = 1:2:30; %KNEE
+gear1_ratios = [9.5]; %HIP
+gear2_ratios = [9.5]; %KNEE
 
 max_height_data = zeros(length(gear1_ratios), length(gear2_ratios));
 
 for i = 1:length(gear1_ratios)
-    i
+    i;
     gear_ratio1 = gear1_ratios(i);
     for j = 1:length(gear2_ratios)
         gear_ratio2 = gear2_ratios(j);
@@ -185,6 +185,8 @@ for i = 1:length(gear1_ratios)
             figure;
             speed = 1;
             animate_simple(t_fs,z_fs,kinematics,speed, gear_ratio1, body_width);
+            figure;
+            animate_simple(t,z,kinematics,speed, gear_ratio1, body_width);
             
             %% Plot Actuation Efforts + True Torque Speed Curve
             
@@ -217,17 +219,35 @@ for i = 1:length(gear1_ratios)
             red = [216, 17, 89]/255;
             pink = [143, 45, 86]/255;
             colors_tau1 = [linspace(red(1),pink(1),len)', linspace(red(2),pink(2),len)', linspace(red(3),pink(3),len)'];
-            blue = [90, 169, 230]/255;
-            lightblue = [127, 200, 248]/255;
+            blue = [0, 0, 0]/255;
+            lightblue = [20, 20, 20]/255;
             colors_tau2 = [linspace(blue(1),lightblue(1),len)', linspace(blue(2),lightblue(2),len)', linspace(blue(3),lightblue(3),len)'];
             
+            line1 = [m_ts,b_ts];
+            line2 = [0, motor_base_torque*gear_ratio1, motor_base_free_speed/gear_ratio1, motor_base_torque*gear_ratio1];
+            [x_int,y_int] = line_intersection(line1,line2);
+            ar2 = area([-5,ceil(motor_base_free_speed/gear_ratio1/5)*5],[ceil(motor_base_torque*gear_ratio1/5)*5,ceil(motor_base_torque*gear_ratio1/5)*5]);
+            ar = area([-5,x_int,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1, 0]);
+            ar.EdgeColor = '#808080';
+            ar2.EdgeColor = '#808080';
+            ar.FaceColor = '#ffdda6';
+            ar2.FaceColor = '#bfecf2';
+
+            xgrid = -5:0.5:ceil(motor_base_free_speed/gear_ratio1/5)*5; 
+            ygrid = 0:0.5:ceil(motor_base_torque*gear_ratio1/5)*5; 
+
+
+           xl = arrayfun(@(x)xline(x,'Color','#808080','LineWidth',0.2),xgrid);
+           yl = arrayfun(@(y)yline(y,'Color','#808080','LineWidth',0.2),ygrid);
+
+
             %plot the tau-s constraints
-            plot([0,motor_base_free_speed/gear_ratio1],[motor_torque_intercept*gear_ratio1,0]);
-            plot([0,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1]);
-            plot([motor_base_free_speed/gear_ratio1,motor_base_free_speed/gear_ratio1],[0,motor_base_torque*gear_ratio1]);
-            plot([0,motor_base_free_speed/gear_ratio2],[motor_torque_intercept*gear_ratio2,0]);
-            plot([0,motor_base_free_speed/gear_ratio2],[motor_base_torque*gear_ratio2,motor_base_torque*gear_ratio2]);
-            plot([motor_base_free_speed/gear_ratio2,motor_base_free_speed/gear_ratio2],[0,motor_base_torque*gear_ratio2]);
+            %plot([0,motor_base_free_speed/gear_ratio1],[motor_torque_intercept*gear_ratio1,0]);
+            %plot([0,motor_base_free_speed/gear_ratio1],[motor_base_torque*gear_ratio1,motor_base_torque*gear_ratio1]);
+            %plot([motor_base_free_speed/gear_ratio1,motor_base_free_speed/gear_ratio1],[0,motor_base_torque*gear_ratio1]);
+            %plot([0,motor_base_free_speed/gear_ratio2],[motor_torque_intercept*gear_ratio2,0]);
+            %plot([0,motor_base_free_speed/gear_ratio2],[motor_base_torque*gear_ratio2,motor_base_torque*gear_ratio2]);
+            %plot([motor_base_free_speed/gear_ratio2,motor_base_free_speed/gear_ratio2],[0,motor_base_torque*gear_ratio2]);
             
             %plot the trajectory
             scatter(V1s, U1s, sz, colors_tau1, 'filled');
@@ -239,7 +259,7 @@ for i = 1:length(gear1_ratios)
             xlabel("Motor Velocity (rads/s)");
             ylabel("Motor Torques (Nm)");
             title("Actuation Command Overlayed on TS Curve during Stance");
-            %legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
+            legend('Unattainable Region', 'Motor Operation Region', 'Hip Torques', 'Knee Torques');
             grid on
             
             %plot the "gem" of strange looping action we found
@@ -254,11 +274,12 @@ for i = 1:length(gear1_ratios)
             grid on
             
             %plot trajectories as a function of time
+            LW = 5
             figure
             subplot(3,1,1);
             hold on
-            plot(t(:,1:end-1), U1s);
-            plot(t(:,1:end-1), U2s);
+            plot(t(:,1:end-1), U1s, 'LineWidth',LW);
+            plot(t(:,1:end-1), U2s, 'LineWidth',LW);
             xlabel("Simulation Time - Stance Phase (s)");
             ylabel("Motor Torques (Nm)");
             title("Torque Trajectories of a Single Jump; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
@@ -267,16 +288,16 @@ for i = 1:length(gear1_ratios)
             hold off
             subplot(3,1,2);
             hold on
-            plot(t(:,1:end-1), V1s);
-            plot(t(:,1:end-1), V2s);
+            plot(t(:,1:end-1), V1s, 'LineWidth',LW);
+            plot(t(:,1:end-1), V2s, 'LineWidth',LW);
             xlabel("Simulation Time - Stance Phase (s)");
             ylabel("Motor Velocities (rads/s)");
             title("Joint Velocities of a Single Jump; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
             legend('Hip Joint', 'Knee Joint');
             grid on
             hold off
-            subplot(3,1,3);
-            plot(t(:,1:end-1), Fs);
+            subplot(3,1,3, 'LineWidth',LW);
+            plot(t(:,1:end-1), Fs, 'LineWidth',LW);
             xlabel("Simulation Time - Stance Phase (s)");
             ylabel("Ground Reaction Force (N)");
             title("Ground Reaction Force vs Simulation Time; Hip Gear: " + gear_ratio1 + "; Knee Gear: " + gear_ratio2);
